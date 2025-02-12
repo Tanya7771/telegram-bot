@@ -3,7 +3,6 @@ import aiosqlite
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram import executor
-from aiogram.dispatcher import FSMContext
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 
 # 🔑 Токены для API
@@ -99,18 +98,15 @@ async def ask_user_input(call: types.CallbackQuery):
     question = ALLOWED_TOPICS[call.data]
     await call.message.answer(f"{question} Напишите свой запрос.")
     
-    # Устанавливаем состояние для дальнейшей обработки
-    await dp.bot.set_state(call.from_user.id, call.data)
+    # Переходим к обработке ответа на введённый запрос
+    await bot.register_next_step_handler(call.message, handle_user_response)
 
 # 📥 Обработка ответов пользователей
-@dp.message_handler(state=["post_ideas", "video_scenarios", "content_plan", "headlines", "audience_analysis", "seo_tips", "visual_ideas", "storytelling", "generate_text"])
-async def handle_user_response(message: types.Message, state: FSMContext):
-    # Получаем текущее состояние (тему)
-    current_state = await state.get_state()
-
-    if current_state in ALLOWED_TOPICS:
+async def handle_user_response(message: types.Message):
+    current_query = message.text
+    if current_query:
         # Генерация ответа для темы запроса
-        response = await generate_ai_response(f"Ответь как SMM-эксперт на запрос по теме {current_state}: {message.text}")
+        response = await generate_ai_response(f"Ответь как SMM-эксперт на запрос по теме {message.text}")
         await message.answer(response)
     else:
         await message.answer("💬 Уточните ваш запрос по теме SMM, контента или маркетинга.")
@@ -121,4 +117,5 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_until_complete(init_db())
     executor.start_polling(dp, skip_updates=True)
+
 
