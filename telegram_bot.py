@@ -109,14 +109,15 @@ async def process_generate_text(message: types.Message):
     await message.answer(response)
 
 # 🧠 AI-ответ на вопросы пользователей
-#@dp.message_handler()
-#async def handle_user_message(message: types.Message):
-   # print(f"Бот получил сообщение: {message.text}")
-    #if any(topic.lower() in message.text.lower() for topic in ALLOWED_TOPICS.values()):
-        #response = await generate_ai_response(f"Ответь как SMM-эксперт: {message.text}")
-        #await message.answer(response)
-    #else:
-        #await message.answer("💬 Уточните ваш вопрос по теме SMM, контента или маркетинга.")
+@dp.message_handler(lambda message: message.text.lower() in ALLOWED_TOPICS)
+async def handle_user_message(message: types.Message):
+    topic = [key for key in ALLOWED_TOPICS if key.lower() in message.text.lower()]
+    if topic:
+        # Переписываем тут логику для обработки запроса по найденной теме
+        response = await generate_ai_response(f"Ответь как SMM-эксперт на запрос по теме {topic[0]}: {message.text}")
+        await message.answer(response)
+    else:
+        await message.answer("💬 Уточните ваш вопрос по теме SMM, контента или маркетинга.")
 
 # 🎯 Запуск бота
 if __name__ == "__main__":
