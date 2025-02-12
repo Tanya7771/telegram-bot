@@ -64,8 +64,8 @@ async def generate_ai_response(prompt):
             messages=[{"role": "user", "content": prompt}]
         )
         return response["choices"][0]["message"]["content"]
-    except Exception:
-        return "Ошибка при генерации текста."
+    except Exception as e:
+        return f"Ошибка при генерации текста: {str(e)}"
 
 # 🎉 Приветствие
 @dp.message_handler(commands=['start'])
@@ -109,14 +109,14 @@ async def process_generate_text(message: types.Message):
     await message.answer(response)
 
 # 🧠 AI-ответ на вопросы пользователей
-@dp.message_handler()
-async def handle_user_message(message: types.Message):
-    print(f"Бот получил сообщение: {message.text}")
-    if any(topic.lower() in message.text.lower() for topic in ALLOWED_TOPICS.values()):
-        response = await generate_ai_response(f"Ответь как SMM-эксперт: {message.text}")
-        await message.answer(response)
-    else:
-        await message.answer("💬 Уточните ваш вопрос по теме SMM, контента или маркетинга.")
+#@dp.message_handler()
+#async def handle_user_message(message: types.Message):
+   # print(f"Бот получил сообщение: {message.text}")
+    #if any(topic.lower() in message.text.lower() for topic in ALLOWED_TOPICS.values()):
+        #response = await generate_ai_response(f"Ответь как SMM-эксперт: {message.text}")
+        #await message.answer(response)
+    #else:
+        #await message.answer("💬 Уточните ваш вопрос по теме SMM, контента или маркетинга.")
 
 # 🎯 Запуск бота
 if __name__ == "__main__":
