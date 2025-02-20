@@ -4,6 +4,9 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram import executor
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 # 🔑 Токены для API
 API_TOKEN = "7836824191:AAFQzh2w3cLrwsoP0WxRfsfAd1g7VbIIW-s"
@@ -11,8 +14,9 @@ OPENAI_API_KEY = "Isk-proj-VVVxu5QtZI-YM8Bx6EL2qYngH_vUMZ5Sme-7N0mNoRgntQQL5sMPD
 
 # 🤖 Инициализация бота и диспетчера
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
-dp.middleware.setup(LoggingMiddleware())  # Логирование для отладки
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)
+dp.middleware.setup(LoggingMiddleware())
 openai.api_key = OPENAI_API_KEY
 
 # 🎯 Фильтр: какие темы бот поддерживает?
@@ -24,9 +28,13 @@ ALLOWED_TOPICS = {
     "audience_analysis": "Напиши свой вопрос в формате: \"Сделай мне анализ аудитории для [ваша ниша]\".",
     "seo_tips": "Напиши свой вопрос в формате: \"Как мне настроить или улучшить SEO-оптимизацию для [ваша ниша].\"",
     "visual_ideas": "Напиши свой вопрос в формате: \"Напиши мне идеи для визуала для [ваша ниша]\".",
-    "storytelling": "Напиши свой вопрос в формате: \"Напиши мне идеи сторитейллинга для [ваша ниша]\".",
+    "storytelling": "Напиши свой вопрос в формате: \"Напиши мне идеи сторителлинга для [ваша ниша]\".",
     "generate_text": "Напиши свой вопрос в формате: \"Напиши мне текст для [ваша ниша]\"."
 }
+
+# 💾 FSM для обработки состояний
+class Form(StatesGroup):
+    waiting_for_query = State()
 
 # 🗄 Функция для работы с базой данных
 async def init_db():
@@ -34,7 +42,8 @@ async def init_db():
         await db.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
-            username TEXT
+            username TEXT,
+            subscription_end DATE
         )""")
         await db.commit()
 
@@ -93,26 +102,26 @@ SMM-помощник для бизнеса, контента и идей.
 
 # 📝 Обработка кнопок меню
 @dp.callback_query_handler(lambda call: call.data in ALLOWED_TOPICS)
-async def ask_user_input(call: types.CallbackQuery):
+async def ask_user_input(call: types.CallbackQuery, state: FSMContext):
     print(f"Пользователь выбрал запрос: {call.data}")
-    # Получаем запрос и просим пользователя ввести дополнительную информацию
     question = ALLOWED_TOPICS[call.data]
     await call.message.answer(f"{question} Напишите свой запрос.")
-    
-    # Переходим к обработке ответа на введённый запрос
-    await bot.register_next_step_handler(call.message, handle_user_response)
+    await Form.waiting_for_query.set()
+    await state.update_data(topic=call.data)
 
 # 📥 Обработка ответов пользователей
-async def handle_user_response(message: types.Message):
-    print(f"Пользователь отправил запрос: {message.text}")
-    current_query = message.text
-    if current_query:
-        # Генерация ответа для темы запроса
+@dp.message_handler(state=Form.waiting_for_query)
+async def handle_user_response(message: types.Message, state: FSMContext):
+    user_data = await state.get_data()
+    topic = user_data.get("topic")
+    print(f"Пользователь отправил запрос: {message.text} для темы {topic}")
+    if message.text:
         response = await generate_ai_response(f"Ответь как SMM-эксперт на запрос по теме {message.text}")
-        print(f"Ответ от GPT: {response}")  # Логируем ответ от GPT
+        print(f"Ответ от GPT: {response}")
         await message.answer(response)
     else:
         await message.answer("💬 Уточните ваш запрос по теме SMM, контента или маркетинга.")
+    await state.finish()
 
 # 🎯 Запуск бота
 if __name__ == "__main__":
@@ -120,5 +129,4 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_until_complete(init_db())
     executor.start_polling(dp, skip_updates=True)
-
 
